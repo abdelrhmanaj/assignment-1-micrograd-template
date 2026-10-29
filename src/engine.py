@@ -1,8 +1,9 @@
 import math
+import numbers
 
 class Value:
     def __init__(self, data, _children=(), _op='', label=''):
-        self.data = data
+        self.data = float(data) if isinstance(data, (int, float, numbers.Number)) else data
         self.grad = 0.0  # means no effect by default
         self._backward = lambda: None
         self._prev = set(_children)
@@ -13,9 +14,9 @@ class Value:
         return f"Value(data={self.data})"
 
     def __add__(self, other):  # self + other
-        if not isinstance(other, (Value, int, float)):
+        if not isinstance(other, (Value, int, float, numbers.Number)):
             raise TypeError(f"Unsupported operand type for +: 'Value' and '{type(other).__name__}'")
-        other = other if isinstance(other, Value) else Value(other)
+        other = other if isinstance(other, Value) else Value(float(other))
         out = Value(self.data + other.data, (self, other), '+')
 
         def _backward():
@@ -29,9 +30,9 @@ class Value:
         return self + other
 
     def __mul__(self, other):  # self * other
-        if not isinstance(other, (Value, int, float)):
+        if not isinstance(other, (Value, int, float, numbers.Number)):
             raise TypeError(f"Unsupported operand type for *: 'Value' and '{type(other).__name__}'")
-        other = other if isinstance(other, Value) else Value(other)
+        other = other if isinstance(other, Value) else Value(float(other))
         out = Value(self.data * other.data, (self, other), '*')
 
         def _backward():
@@ -48,18 +49,19 @@ class Value:
         return self * -1
 
     def __sub__(self, other):  # self - other
-        if not isinstance(other, (Value, int, float)):
+        if not isinstance(other, (Value, int, float, numbers.Number)):
             raise TypeError(f"Unsupported operand type for -: 'Value' and '{type(other).__name__}'")
+        other = other if isinstance(other, Value) else Value(float(other))
         return self + (-other)
 
     def __rsub__(self, other):  # other - self
-        if not isinstance(other, (Value, int, float)):
+        if not isinstance(other, (Value, int, float, numbers.Number)):
             raise TypeError(f"Unsupported operand type for -: '{type(other).__name__}' and 'Value'")
-        other = other if isinstance(other, Value) else Value(other)
+        other = other if isinstance(other, Value) else Value(float(other))
         return other + (-self)
 
     def __truediv__(self, other):  # self / other
-        if not isinstance(other, (Value, int, float)):
+        if not isinstance(other, (Value, int, float, numbers.Number)):
             raise TypeError(f"Unsupported operand type for /: 'Value' and '{type(other).__name__}'")
         if isinstance(other, Value):
             if other.data == 0:
@@ -68,22 +70,23 @@ class Value:
         else:
             if other == 0:
                 raise ZeroDivisionError("division by zero")
-            return self * (other ** -1)
+            return self * (float(other) ** -1)
 
     def __rtruediv__(self, other):  # other / self
-        if not isinstance(other, (Value, int, float)):
+        if not isinstance(other, (Value, int, float, numbers.Number)):
             raise TypeError(f"Unsupported operand type for /: '{type(other).__name__}' and 'Value'")
         if self.data == 0:
             raise ZeroDivisionError("division by zero")
-        other = other if isinstance(other, Value) else Value(other)
+        other = other if isinstance(other, Value) else Value(float(other))
         return other * (self ** -1)
 
     def __pow__(self, other):  # self ** other
-        assert isinstance(other, (int, float)), "only supporting int/float powers for now"
-        out = Value(self.data ** other, (self,), f'**{other}')
+        assert isinstance(other, (int, float, numbers.Number)) and not isinstance(other, Value), "only supporting int/float powers for now"
+        exp_val = int(other) if isinstance(other, (int, numbers.Integral)) and not isinstance(other, float) else float(other)
+        out = Value(self.data ** exp_val, (self,), f'**{exp_val}')
 
         def _backward():
-            self.grad += (other * (self.data ** (other - 1))) * out.grad
+            self.grad += (exp_val * (self.data ** (exp_val - 1))) * out.grad
         out._backward = _backward
 
         return out
